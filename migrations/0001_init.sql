@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
   kdf_memory INTEGER,
   kdf_parallelism INTEGER,
   security_stamp TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  status TEXT NOT NULL DEFAULT 'active',
+  totp_secret TEXT,
+  totp_recovery_code TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -73,6 +77,32 @@ CREATE TABLE IF NOT EXISTS attachments (
 );
 CREATE INDEX IF NOT EXISTS idx_attachments_cipher ON attachments(cipher_id);
 
+CREATE TABLE IF NOT EXISTS sends (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  notes TEXT,
+  data TEXT NOT NULL,
+  key TEXT NOT NULL,
+  password_hash TEXT,
+  password_salt TEXT,
+  password_iterations INTEGER,
+  auth_type INTEGER NOT NULL DEFAULT 2,
+  emails TEXT,
+  max_access_count INTEGER,
+  access_count INTEGER NOT NULL DEFAULT 0,
+  disabled INTEGER NOT NULL DEFAULT 0,
+  hide_email INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  expiration_date TEXT,
+  deletion_date TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_sends_user_updated ON sends(user_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_sends_user_deletion ON sends(user_id, deletion_date);
+
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -80,6 +110,33 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS invites (
+  code TEXT PRIMARY KEY,
+  created_by TEXT NOT NULL,
+  used_by TEXT,
+  expires_at TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (used_by) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_invites_status_expires ON invites(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_invites_created_by ON invites(created_by, created_at);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id TEXT PRIMARY KEY,
+  actor_user_id TEXT,
+  action TEXT NOT NULL,
+  target_type TEXT,
+  target_id TEXT,
+  metadata TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created ON audit_logs(actor_user_id, created_at);
 
 CREATE TABLE IF NOT EXISTS devices (
   user_id TEXT NOT NULL,

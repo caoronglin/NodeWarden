@@ -1,4 +1,5 @@
 import { Env } from './types';
+import { NotificationsHub } from './durable/notifications-hub';
 import { handleRequest } from './router';
 import { StorageService } from './services/storage';
 import { applyCors, jsonResponse } from './utils/response';
@@ -34,12 +35,14 @@ export default {
     void ctx;
     await ensureDatabaseInitialized(env);
     if (dbInitError) {
+      // Log full error server-side, return generic message to client.
+      console.error('DB init error (not forwarded to client):', dbInitError);
       const resp = jsonResponse(
         {
           error: 'Database not initialized',
-          error_description: dbInitError,
+          error_description: 'Database initialization failed. Check server logs for details.',
           ErrorModel: {
-            Message: dbInitError,
+            Message: 'Service temporarily unavailable',
             Object: 'error',
           },
         },
@@ -52,3 +55,5 @@ export default {
     return applyCors(request, resp);
   },
 };
+
+export { NotificationsHub };
